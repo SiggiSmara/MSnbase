@@ -3,8 +3,14 @@
 ## Changes in version 2.5.10
 - Adapt `utils.removePeaks` to new `IRanges` implementation; thanks to H. Pagès
   for the implementation (see PR [#320](https://github.com/lgatto/MSnbase/issues/320) for discussion) <2018-03-26>.
+
 - Centroiding information is retrieved from raw files (for mzML/mzXML files;.
   see issue [#325](https://github.com/lgatto/MSnbase/issues/325) <2018-03-27>
+
+- Add parameter `timeDomain` to `combineSpectra`, `combineSpectraMovingWindow`
+  and `estimateMzScattering` allowing to perform the grouping of m/z values
+  from consecutive scans based on the square root of the m/z values <2018-03-29>.
+
 
 ## Changes in version 2.5.9
 - New combineSpectra, combineSpectraMovingWindow, estimateMzScattering and
