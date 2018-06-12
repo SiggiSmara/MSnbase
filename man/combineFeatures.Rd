@@ -5,27 +5,27 @@
 
 
 \description{
+
   This function combines the features in an
   \code{"\linkS4class{MSnSet}"} instance applying a summarisation
-  function (see \code{fun} argument) to sets of features as
-  defined by a factor (see \code{groupBy} argument).
-  Note that the feature names are automatically updated based on the
-  \code{groupBy} parameter.
+  function (see \code{fun} argument) to sets of features as defined by a
+  factor (see \code{groupBy} argument).  Note that the feature names are
+  automatically updated based on the \code{groupBy} parameter.
 
   The coefficient of variations are automatically computed and collated
   to the featureData slot. See \code{cv} and \code{cv.norm} arguments
   for details.
 
-  NB: All the functions available as \code{fun} take a \code{na.rm}
-  argument. This argument is \code{FALSE} by default. This will have as
-  effect that \code{NA} get propagated at the higher level. It is
-  generally advised to set \code{na.rm = TRUE}. See the example below.
+  If NA values are present, a message will be remind the user. Details
+  on how missing value impact on the data aggregation are provided
+  below.
+
 }
 
 \usage{
 
 combineFeatures(object, groupBy, fun = c("mean", "median",
-"weighted.mean", "sum", "medpolish", "iPQF", "NTR"), fcol,
+"weighted.mean", "sum", "medpolish", "robust", "iPQF", "NTR"), fcol,
 redundancy.handler = c("unique", "multiple"), cv = TRUE, cv.norm =
 "sum", verbose = isMSnbaseVerbose(), ...)
 
@@ -42,12 +42,14 @@ redundancy.handler = c("unique", "multiple"), cv = TRUE, cv.norm =
     is a vector describing the feature mapping. If the list can be
     named, its names must match \code{fetureNames(object)}. See
     \code{redundancy.handler} for details about the latter. }
- 
+
   \item{fun}{ The summerising function. Currently, mean, median,
-    weighted mean, sum, median polish, iPQF (see
-    \code{\link{iPQF}} for details) and NTR (see \code{\link[MSnbase]{NTR}}
-    for details) are implemented, but user-defined functions can also be
-    supplied. }
+    weighted mean, sum, median polish, robust summarisation (using
+    \code{MASS::rlm}), iPQF (see \code{\link{iPQF}} for details) and NTR
+    (see \code{\link[MSnbase]{NTR}} for details) are implemented, but
+    user-defined functions can also be supplied. Note that the robust
+    menthods assumes that the data are already log-transformed.
+  }
 
   \item{fcol}{Feature meta-data label (fData column name) defining how
     to summerise the features. It must be present in
@@ -82,25 +84,64 @@ redundancy.handler = c("unique", "multiple"), cv = TRUE, cv.norm =
 
 
 \value{
+
   A new \code{"\linkS4class{MSnSet}"} instance is returned with
   \code{ncol} (i.e. number of samples) is unchanged, but \code{nrow}
   (i.e. the number od features) is now equals to the number of levels in
   \code{groupBy}. The feature metadata (\code{featureData} slot) is
-  updated accordingly and only the first occurrence of a feature in
-  the original feature meta-data is kept.
+  updated accordingly and only the first occurrence of a feature in the
+  original feature meta-data is kept.
+
+}
+
+\details{
+
+  Missing values have different effect based on the aggregation method
+  employed, as detailed below. See also examples below.
+
+  \enumerate{
+
+    \item When using either \code{"sum"}, \code{"mean"},
+    \code{"weighted.mean"} or \code{"median"}, any missing value will be
+    propagated at the higher level. If \code{na.rm = TRUE} is used, then
+    the missing value will be ignored.
+
+    \item Missing values will result in an error when using
+    \code{"medpolish"}, unless \code{na.rm = TRUE} is used.
+
+    \item When using robust summarisation (\code{"robust"}), individual
+    missing values are excluded prior to fitting the linear model by
+    robust regression. To remove all values in the feature containing
+    the missing values, use \code{filterNA}.
+
+    \item The \code{"iPQF"} method will fail with an error if missing
+    value are present, which will have to be handled explicitly. See
+    below.
+
+  }
+
+  More generally, missing values often need dedicated handling such as
+  filtering (see \code{\link{filterNA}}) or imputation (see
+  \code{\link{impute}}).
 }
 
 
 \author{
-  Laurent Gatto <lg390@cam.ac.uk>
+
+  Laurent Gatto <lg390@cam.ac.uk> with contributions from Martina
+  Fischer for iPQF and Ludger Goeminne, Adriaan Sticker and Lieven
+  Clement for robust.
+
 }
 
 \references{
+
   iPQF: a new peptide-to-protein summarization method using peptide
   spectra characteristics to improve protein quantification. Fischer M,
   Renard BY.  Bioinformatics. 2016 Apr
   1;32(7):1040-7. doi:10.1093/bioinformatics/btv675. Epub 2015 Nov
   20. PubMed PMID:26589272.
+
 }
 
 \seealso{
@@ -146,14 +187,34 @@ exprs(combineFeatures(msnset, grp, "sum", na.rm = TRUE))
 
 ## using iPQF
 data(msnset2)
+anyNA(msnset2)
 res <- combineFeatures(msnset2,
-                       groupBy = fData(msnset2)$accession,
-                       redundancy.handler = "unique",
-                       fun = "iPQF",
-                       low.support.filter = FALSE,
-                       ratio.calc = "sum",
-                       method.combine = FALSE)
+		       groupBy = fData(msnset2)$accession,
+		       redundancy.handler = "unique",
+		       fun = "iPQF",
+		       low.support.filter = FALSE,
+		       ratio.calc = "sum",
+		       method.combine = FALSE)
 head(exprs(res))
+
+## using robust summarisation
+data(msnset) ## reset data
+msnset <- log(msnset, 2) ## log2 transform
+
+## Feature X46, in the ENO protein has one missig value
+which(is.na(msnset), arr.ind = dim(msnset))
+exprs(msnset["X46", ])
+## Only the missing value in X46 and iTRAQ4.116 will be ignored
+res <- combineFeatures(msnset,
+		       fcol = "ProteinAccession",
+		       fun = "robust")
+tail(exprs(res))
+
+msnset2 <- filterNA(msnset) ## remove features with missing value(s)
+res2 <- combineFeatures(msnset2,
+			fcol = "ProteinAccession",
+			fun = "robust")
+## Here, the values for ENO are different because the whole feature
+## X46 that contained the missing value was removed prior to fitting.
+tail(exprs(res2))
 }
-
-

@@ -293,67 +293,35 @@ normalise_Spectrum <- function(object, method, value) {
     return(object)
 }
 
-breaks_Spectrum <- function(object, binSize = 1L,
-                            breaks = seq(floor(min(mz(object))),
-                                     ceiling(max(mz(object))),
-                            by = binSize)) {
-  ## assumming that mz and breaks are sorted
-  if (mz(object)[peaksCount(object)] >= breaks[length(breaks)]) {
-    breaks <- c(breaks, ceiling(mz(object)[peaksCount(object)] + mean(diff(breaks))))
-  }
-  breaks
-}
-
-breaks_Spectra <- function(object1, object2, binSize = 1L,
-                           breaks = seq(floor(min(c(mz(object1), mz(object2)))),
-                                        ceiling(max(c(mz(object1), mz(object2)))),
-                                        by = binSize)) {
-  sort(unique(c(breaks_Spectrum(object1, binSize = binSize, breaks = breaks),
-                breaks_Spectrum(object2, binSize = binSize, breaks = breaks))))
-}
-
 bin_Spectrum <- function(object, binSize = 1L,
                          breaks = seq(floor(min(mz(object))),
                                       ceiling(max(mz(object))),
                                       by = binSize),
                          fun = sum,
                          msLevel.) {
-  ## If msLevel. not missing, perform the trimming only if the msLevel
-  ## of the spectrum matches (any of) the specified msLevels.
-  if (!missing(msLevel.)) {
-      if (!(msLevel(object) %in% msLevel.))
-          return(object)
-  }
-  fun <- match.fun(fun)
-
-  breaks <- breaks_Spectrum(object, binSize = binSize, breaks = breaks)
-  nb <- length(breaks)
-
-  idx <- findInterval(mz(object), breaks)
-  idx[which(idx < 1L)] <- 1L
-  idx[which(idx >= nb)] <- nb
-
-  mz <- (breaks[-nb] + breaks[-1L]) / 2L
-  intensity <- double(nb - 1L)
-
-  intensity[unique(idx)] <- unlist(lapply(base::split(intensity(object), idx), fun))
-
-  object@mz <- mz
-  object@intensity <- intensity
-  object@tic <- sum(intensity)
-  object@peaksCount <- length(mz)
-  if (validObject(object))
-      return(object)
+    ## If msLevel. not missing, perform the trimming only if the msLevel
+    ## of the spectrum matches (any of) the specified msLevels.
+    if (!missing(msLevel.)) {
+        if (!(msLevel(object) %in% msLevel.))
+            return(object)
+    }
+    bins <- .bin_values(object@intensity, object@mz, binSize = binSize,
+                        breaks = breaks, fun = fun)
+    object@mz <- bins$mids
+    object@intensity <- bins$x
+    object@tic <- sum(object@intensity)
+    object@peaksCount <- length(object@mz)
+    if (validObject(object))
+        return(object)
 }
 
 bin_Spectra <- function(object1, object2, binSize = 1L,
                         breaks = seq(floor(min(c(mz(object1), mz(object2)))),
                                      ceiling(max(c(mz(object1), mz(object2)))),
                                      by = binSize)) {
-  breaks <- breaks_Spectra(object1, object2,
-                           binSize = binSize, breaks = breaks)
-  list(bin_Spectrum(object1, breaks = breaks),
-       bin_Spectrum(object2, breaks = breaks))
+    breaks <- .fix_breaks(breaks, range(mz(object1), mz(object2)))
+    list(bin_Spectrum(object1, breaks = breaks),
+         bin_Spectrum(object2, breaks = breaks))
 }
 
 #' calculate similarity between spectra (between their intensity profile)
@@ -547,6 +515,7 @@ validSpectrum <- function(object) {
 #' - mergedResultStartScanNum
 #' - mergedResultEndScanNum
 #' - injectionTime
+#' - centroided
 #' 
 #' @author Johannes Rainer
 #'
@@ -574,7 +543,8 @@ validSpectrum <- function(object) {
              mergedResultScanNum = 0,   # ???
              mergedResultStartScanNum = 0, # ???
              mergedResultEndScanNum = 0,   # ???
-             injectionTime = 0            # Don't have that
+             injectionTime = 0,            # Don't have that
+             centroided = centroided(x)
              )
     if (msLevel(x) > 1) {
         res["collisionEnergy"] <- collisionEnergy(x)
@@ -851,7 +821,15 @@ descendPeak <- function(mz, intensity, peakIdx = NULL, signalPercentage = 33,
 #' All m/z values with a difference smaller than this value are combined to
 #' a m/z group.
 #' Intensities and m/z values falling within each of these m/z groups are
-#' aggregated using the `intensity_fun` and `mz_fun`, respectively.
+#' aggregated using the `intensity_fun` and `mz_fun`, respectively. It is
+#' highly likely that all QTOF profile data is collected with a timing circuit
+#' that collects data points with regular intervals of time that are then later
+#' converted into m/z values based on the relationship `t = k * sqrt(m/z)`. The
+#' m/z scale is thus non-linear and the m/z scattering (which is in fact caused
+#' by small variations in the time circuit) will thus be different in the lower
+#' and upper m/z scale. m/z-intensity pairs from consecutive scans to be
+#' combined are therefore defined by default on the square root of the m/z
+#' values. With `timeDomain = FALSE`, the actual m/z values will be used.
 #'
 #' @param x `list` of `Spectrum` objects.
 #'
@@ -872,6 +850,14 @@ descendPeak <- function(mz, intensity, peakIdx = NULL, signalPercentage = 33,
 #'     values are grouped. If not provided, this value is estimated from the
 #'     distribution of differences of m/z values from the provided spectra
 #'     (see details).
+#'
+#' @param timeDomain `logical(1)` whether definition of the m/z values to be
+#'     combined into one m/z is performed on m/z values
+#'     (`timeDomain = FALSE`) or on `sqrt(mz)` (`timeDomain = TRUE`).
+#'     Profile data from TOF MS instruments should be aggregated based
+#'     on the time domain (see details). Note that a pre-defined `mzd` should
+#'     also be estimated on the square root of m/z values if
+#'     `timeDomain = TRUE`.
 #' 
 #' @return
 #'
@@ -880,7 +866,7 @@ descendPeak <- function(mz, intensity, peakIdx = NULL, signalPercentage = 33,
 #' of m/z and intensity pairs than the spectrum with index `main` in `x`, also
 #' all other related information is taken from this spectrum.
 #'
-#' @author Johannes Rainer
+#' @author Johannes Rainer, Sigurdur Smarason
 #'
 #' @seealso
 #'
@@ -928,7 +914,8 @@ descendPeak <- function(mz, intensity, peakIdx = NULL, signalPercentage = 33,
 #' plot(mz(sp_agg), intensity(sp_agg), xlim = range(mzs[5:25]), type = "h",
 #'     col = "black")
 combineSpectra <- function(x, mzFun = base::mean, intensityFun = base::mean,
-                           main = floor(length(x) / 2L) + 1L, mzd) {
+                           main = floor(length(x) / 2L) + 1L, mzd,
+                           timeDomain = TRUE) {
     if (length(unique(unlist(lapply(x, function(z) z@msLevel)))) != 1)
         stop("Can only combine spectra with the same MS level")
     mzs <- lapply(x, function(z) z@mz)
@@ -936,7 +923,10 @@ combineSpectra <- function(x, mzFun = base::mean, intensityFun = base::mean,
     mzs <- unlist(mzs, use.names = FALSE)
     mz_order <- base::order(mzs)
     mzs <- mzs[mz_order]
-    mz_groups <- .group_mz_values(mzs, mzd = mzd)
+    if (timeDomain)
+        mz_groups <- .group_mz_values(sqrt(mzs), mzd = mzd)
+    else
+        mz_groups <- .group_mz_values(mzs, mzd = mzd)
     if (length(unique(mz_groups)) < length(x[[main]]@mz))
         stop("Got less m/z groups than m/z values in the original spectrum. ",
              "Most likely the data is not profile-mode LCMS data.")
@@ -1031,13 +1021,17 @@ combineSpectra <- function(x, mzFun = base::mean, intensityFun = base::mean,
 #' @param x `list` of `Spectrum` objects.
 #'
 #' @noRd
-.estimate_mz_scattering_list <- function(x, halfWindowSize = 1L) {
+.estimate_mz_scattering_list <- function(x, halfWindowSize = 1L,
+                                         timeDomain = TRUE) {
     len_x <- length(x)
     mzs <- vector("list", len_x)
     for (i in seq_along(x)) {
         mzs[[i]] <- .estimate_mz_scattering(
             sort(unlist(lapply(x[windowIndices(i, halfWindowSize, len_x)],
-                               function(z) z@mz))))
+                               function(z) {
+                                   if (timeDomain) sqrt(z@mz)
+                                   else z@mz
+                               }))))
     }
     mzs
 }

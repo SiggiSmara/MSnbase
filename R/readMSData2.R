@@ -17,6 +17,8 @@ readMSData2 <- function(files,
 readOnDiskMSData <- function(files, pdata, msLevel., verbose,
                              centroided., smoothed.) {
     .testReadMSDataInput(environment())
+    stopifnot(is.logical(centroided.))
+
     ## Creating environment with Spectra objects
     assaydata <- new.env(parent = emptyenv())
     filenams <- filenums <- c()
@@ -47,10 +49,10 @@ readOnDiskMSData <- function(files, pdata, msLevel., verbose,
         ## Don't read the individual spectra, just define the names of
         ## the spectra.
         fullhdorder <- c(fullhdorder,
-                          formatFileSpectrumNames(fileIds=filen,
-                                                  spectrumIds=seq_along(spidx),
-                                                  nSpectra=length(spidx),
-                                                  nFiles=length(files)))
+                         formatFileSpectrumNames(fileIds=filen,
+                                                 spectrumIds=seq_along(spidx),
+                                                 nSpectra=length(spidx),
+                                                 nFiles=length(files)))
         ## Extract all Spectrum info from the header and put it into the featureData
         fdData <- fullhd[spidx, , drop = FALSE]
         ## rename totIonCurrent and peaksCount, as detailed in
@@ -59,10 +61,8 @@ readOnDiskMSData <- function(files, pdata, msLevel., verbose,
         ## Add also:
         ## o fileIdx -> links to fileNames property
         ## o spIdx -> the index of the spectrum in the file.
-        ## o centroided and smoothed are parameter argument.
         fdData <- cbind(fileIdx = rep(filen, nrow(fdData)),
                         spIdx = spidx,
-                        centroided = rep(NA, nrow(fdData)),
                         smoothed = rep(as.logical(smoothed.), nrow(fdData)),
                         fdData, stringsAsFactors = FALSE)
         if (isCdfFile(f)) {
@@ -99,7 +99,6 @@ readOnDiskMSData <- function(files, pdata, msLevel., verbose,
                    processing = paste0("Data loaded [", date(), "]"),
                    files = files,
                    smoothed = NA)
-
     ## Create 'fdata' and 'pdata' objects
     if (is.null(pdata)) {
         .pd <- data.frame(sampleNames = basename(files))
@@ -120,7 +119,7 @@ readOnDiskMSData <- function(files, pdata, msLevel., verbose,
         fdata <- new("AnnotatedDataFrame", data = fdata)
         ## Re-order the features.
         ## fdata <- fdata[ls(assaydata), ]
-    }
+    } else fdata <- new("AnnotatedDataFrame")
 
     ## expriment data slot
     if (length(.instrumentInfo) > 1) {
@@ -150,8 +149,7 @@ readOnDiskMSData <- function(files, pdata, msLevel., verbose,
         msLevel. <- as.integer(msLevel.)
         res <- filterMsLevel(res, msLevel.)
     }
-    if (!is.null(centroided.)) {
-        stopifnot(is.logical(centroided.))
+    if (any(!is.na(centroided.))) {
         if (length(centroided.) == 1) {
             centroided(res) <- centroided.
         } else {

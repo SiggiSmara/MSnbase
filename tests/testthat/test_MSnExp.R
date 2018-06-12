@@ -395,38 +395,15 @@ test_that("injection time", {
     f <- msdata::proteomics(full.names = TRUE,
                             pattern = "MS3TMT10_01022016_32917-33481.mzML.gz")
     it1 <- MSnbase:::injectionTimeFromFile1(f) ## in millisecs
-    it2 <- fData(readMSData(f, mode = "onDisk"))$injectionTime ## in secs
-    expect_equal(it1/1000, it2)
+    it2 <- fData(readMSData(f, mode = "onDisk"))$injectionTime ## in millisecs
+    expect_equal(it1, it2)
 })
 
 test_that("chromatogram,MSnExp works", {
-    library(msdata)
-    mzf <- c(system.file("microtofq/MM14.mzML", package = "msdata"),
-             system.file("microtofq/MM8.mzML", package = "msdata"))
-    tmpd <- tempdir()
-    file.copy(mzf[1], paste0(tmpd, "a.mzML"))
-    file.copy(mzf[2], paste0(tmpd, "b.mzML"))
-    mzf <- c(mzf, paste0(tmpd, c("a.mzML", "b.mzML")))
-    
-    inMem <- readMSData(files = mzf, msLevel. = 1, centroided. = TRUE)
-
-    ## Full rt range.
-    mzr <- matrix(c(100, 120), nrow = 1)
-    res <- chromatogram(inMem, mz = mzr)
-    flt <- filterMz(inMem, mz = mzr[1, ])
-    ints <- split(unlist(lapply(spectra(flt), function(z) sum(intensity(z)))),
-                  fromFile(flt))
-    expect_equal(ints[[1]], intensity(res[1, 1]))
-    expect_equal(ints[[2]], intensity(res[1, 2]))
-    expect_equal(split(rtime(flt), fromFile(flt))[[1]], rtime(res[1, 1]))
-    expect_equal(split(rtime(flt), fromFile(flt))[[2]], rtime(res[1, 2]))
-    expect_equal(pData(inMem), pData(res))
-    ## feature data:
-    expect_true(nrow(fData(res)) == nrow(res))
-    expect_true(all(colnames(fData(res)) == c("mzmin", "mzmax", "polarity")))
-    expect_equal(fData(res)[1, 1], 100)
-    expect_equal(fData(res)[1, 2], 120)
-    expect_equal(fData(res)[1, 3], 1)
+    inMem <- microtofq_in_mem_ms1
+    ## Reduce here the tests. Most of the tests are performed in
+    ## chromatogram,OnDiskMSnExp and both methods use the same low level
+    ## function.
     
     ## Multiple mz ranges.
     mzr <- matrix(c(100, 120, 200, 220, 300, 320), nrow = 3, byrow = TRUE)
@@ -486,7 +463,7 @@ test_that("chromatogram,MSnExp works", {
     expect_equal(ints, intensity(res[2, 2]))
 
     ## Check that phenoType is correctly passed.
-    pd <- data.frame(name = c("first", "second", "third", "fourth"), idx = 1:4)
+    pd <- data.frame(name = c("first", "second"), idx = 1:2)
     pData(inMem) <- pd
     chrs <- chromatogram(inMem)
     ## rownames(pd) <- colnames(chrs)
@@ -508,30 +485,29 @@ test_that("setAs,MSnExp,data.frame works", {
 })
 
 test_that("pickPeaks,MSnExp works with refineMz", {
-    ## Get one spectrum from the tmt
-    spctr <- tmt_erwinia_in_mem_ms1[[1]]
-    centroided(spctr) <- FALSE
-
-    centroided(tmt_erwinia_in_mem_ms1) <- FALSE
-    tmt_pk <- pickPeaks(tmt_erwinia_in_mem_ms1, refineMz = "kNeighbors",
-                        k = 1)
+    ## Reduce the TMT erwinia data set to speed up processing on the full
+    ## data.
+    tmt <- tmt_im_ms1_sub
+    centroided(tmt) <- FALSE
+    ## Get one spectrum against which we will compare
+    spctr <- tmt[[1]]
+    ## kNeighbors
+    tmt_pk <- pickPeaks(tmt, refineMz = "kNeighbors", k = 1)
     spctr_pk <- pickPeaks(spctr, refineMz = "kNeighbors", k = 1)
     spctr_tmt_pk <- tmt_pk[[1]]
     expect_equal(spctr_pk, spctr_tmt_pk)
-
+    ## descendPeak
     spctr_pk <- pickPeaks(spctr, refineMz = "descendPeak",
                           signalPercentage = 75)
-    tmt_pk <- pickPeaks(tmt_erwinia_in_mem_ms1, refineMz = "descendPeak",
+    tmt_pk <- pickPeaks(tmt, refineMz = "descendPeak",
                         signalPercentage = 75)
     expect_equal(spctr_pk, tmt_pk[[1]])
-    
     ## Check if we can call method and refineMz and pass arguments to both
     spctr_pk <- pickPeaks(spctr, refineMz = "kNeighbors", k = 1,
                           method = "SuperSmoother", span = 0.9)
-    tmt_pk <- pickPeaks(tmt_erwinia_in_mem_ms1, refineMz = "kNeighbors",
+    tmt_pk <- pickPeaks(tmt, refineMz = "kNeighbors",
                         k = 1, method = "SuperSmoother", span = 0.9)
     expect_equal(spctr_pk, tmt_pk[[1]])
-    
     ## Check errors
     expect_error(pickPeaks(tmt_erwinia_in_mem_ms1, refineMz = "some_method"))
 })
@@ -543,7 +519,7 @@ test_that("estimateMzResolution,MSnExp works", {
 })
 
 test_that("estimateMzScattering works", {
-    expect_error(MSnbase:::estimateMzScattering(4))
+    expect_error(estimateMzScattering(4))
 
     res <- estimateMzScattering(tmt_erwinia_in_mem_ms1)
     mzr <- estimateMzResolution(tmt_erwinia_in_mem_ms1)
@@ -552,7 +528,8 @@ test_that("estimateMzScattering works", {
     expect_true(res[[idx]] < mzr[[idx]])
 
     ## .estimate_mz_scattering_list.
-    res_2 <- .estimate_mz_scattering_list(spectra(tmt_erwinia_in_mem_ms1))
+    res_2 <- .estimate_mz_scattering_list(spectra(tmt_erwinia_in_mem_ms1),
+                                          timeDomain = FALSE)
     expect_equal(unname(res), res_2)
 })
 
@@ -560,14 +537,45 @@ test_that("combineSpectraMovingWindow works", {
     ## Check errors
     expect_error(combineSpectraMovingWindow("3"))
     
-    library(msdata)
-    fl <- dir(system.file("sciex", package = "msdata"), full.names = TRUE)[1]
-    od <- readMSData(fl, mode = "onDisk")
+    od <- filterFile(sciex, 1)
     ## Focus on the one with most peaks
     idx <- which.max(peaksCount(od))
-    od <- od[(idx - 3):(idx + 3)]
-    od_comb <- combineSpectraMovingWindow(od)
+    spctrl <- spectra(od[(idx -1):(idx + 1)])
 
+    od <- od[(idx - 3):(idx + 3)]
+     spctr <- combineSpectra(spctrl)
+    ## Should be different from raw ones
+    expect_true(is.character(all.equal(mz(spctr), mz(od[[4]]))))
+    expect_true(is.character(all.equal(intensity(spctr), intensity(od[[4]]))))
+    
+    ## Use pre-calculated mzd:
+    mzd <- estimateMzScattering(od)
+    ## If mzd is estimated on mz and combination on sqrt(mz) it will fail.
+    expect_error(od_comb <- combineSpectraMovingWindow(od, mzd = mzd[[4]]))
+    ## All on m/z scale
+    od_comb <- combineSpectraMovingWindow(od, mzd = mzd[[4]], timeDomain = FALSE)
+    spctr_comb <- od_comb[[4]]
+    expect_equal(mz(spctr_comb), mz(spctr))
+    expect_equal(intensity(spctr_comb), intensity(spctr))
+    
+    ## Estimate on the sqrt(mz)
+    mzd <- estimateMzScattering(od, timeDomain = TRUE)
+    od_comb <- combineSpectraMovingWindow(od, mzd = mzd[[4]])
+    spctr_comb <- od_comb[[4]]
+    expect_equal(mz(spctr_comb), mz(spctr))
+    expect_equal(intensity(spctr_comb), intensity(spctr))
+    ## Should be different from the original ones.
+    spctr_raw <- od[[4]]
+    expect_true(is.character(all.equal(mz(spctr), mz(spctr_raw))))
+    expect_true(is.character(all.equal(intensity(spctr), intensity(spctr_raw))))
+    
+    ## Shouldn't make a difference if we're using timeDomain = TRUE or FALSE.
+    od_comb <- combineSpectraMovingWindow(od)
+    spctr_comb <- od_comb[[4]]
+    expect_equal(mz(spctr_comb), mz(spctr))
+    expect_equal(intensity(spctr_comb), intensity(spctr))
+
+    
     expect_equal(length(od), length(od_comb))
     expect_equal(peaksCount(od), peaksCount(od_comb))
 })

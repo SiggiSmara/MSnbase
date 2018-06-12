@@ -5,11 +5,11 @@ onDisk <- microtofq_on_disk_ms1
 centroided(inMem) <- TRUE
 centroided(onDisk) <- TRUE
 
-inmem2 <- tmt_erwinia_in_mem_ms2
-inmem1 <- tmt_erwinia_in_mem_ms1
-ondisk <- tmt_erwinia_on_disk
-ondisk1 <- tmt_erwinia_on_disk_ms1
-ondisk2 <- tmt_erwinia_on_disk_ms2
+inmem2 <- tmt_im_ms2_sub
+inmem1 <- tmt_im_ms1_sub
+ondisk <- tmt_od_sub
+ondisk1 <- tmt_od_ms1_sub
+ondisk2 <- tmt_od_ms2_sub
 
 
 ############################################################
@@ -54,6 +54,7 @@ test_that("Compare OnDiskMSnExp and MSnExp smooth", {
 ############################################################
 ## compareSpectra
 test_that("Compare OnDiskMSnExp and MSnExp compareSpectra", {
+    ## compare on subsets.
     csp <- compareSpectra(inmem1)
     csp2 <- compareSpectra(ondisk1)
     rownames(csp) <- colnames(csp) <- NULL
@@ -175,7 +176,7 @@ test_that("Test precursor* for OnDiskMSnExp", {
 
 ############################################################
 ## bpi
-test_that("bpi,OnDiskMSnExp", {
+test_that("bpi,OnDiskMSnExp works", {
     ## Get the "initial" one.
     basepi <- bpi(ondisk)
     expect_identical(unname(basepi), fData(ondisk)$basePeakIntensity)
@@ -200,7 +201,7 @@ test_that("tic,OnDiskMSnExp", {
     totic <- tic(ondisk, initial = FALSE)
     expect_identical(names(totic), featureNames(ondisk))
     sp <- spectra(ondisk)
-    totic_calc <- unlist(lapply(sp, FUN = tic))
+    totic_calc <- unlist(spectrapply(ondisk, function(z) sum(z@intensity)))
     expect_identical(totic, totic_calc)
 })
 

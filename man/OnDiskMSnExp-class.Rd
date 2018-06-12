@@ -400,7 +400,11 @@ Class \code{"\linkS4class{Versioned}"}, by class "pSet", distance 5.
       the object's \code{featureData} and represents the tic provided in
       the header of the original raw data files. For \code{initial =
       FALSE}, the TIC is calculated from the actual intensity values in
-      each spectrum after applying all eventual data manipulation methods.
+      each spectrum after applying all eventual data manipulation
+      methods.
+
+      See also https://github.com/lgatto/MSnbase/issues/332 for
+      more details.
 
       \code{BPPARAM} parameter: see \code{spectra} method above.
 
@@ -414,10 +418,13 @@ Class \code{"\linkS4class{Versioned}"}, by class "pSet", distance 5.
       get the base peak intensity (BPI), i.e. the maximum intensity from
       each spectrum in the data set. If \code{initial = TRUE}, the
       information is extracted from the object's \code{featureData} and
-      represents the tic provided in the header of the original raw data
-      files. For \code{initial = FALSE}, the TIC is calculated from the
+      represents the bpi provided in the header of the original raw data
+      files. For \code{initial = FALSE}, the BPI is calculated from the
       actual intensity values in each spectrum after applying all
       eventual data manipulation methods.
+
+      See also https://github.com/lgatto/MSnbase/issues/332 for
+      more details.
 
       \code{BPPARAM} parameter: see \code{spectra} method above.
 
@@ -618,13 +625,14 @@ odmse <- readMSData(f, mode = "onDisk")
 validObject(odmse)
 odmse[[1]]
 
-all(is.na(centroided(odmse)))
 table(isCentroidedFromFile(odmse), msLevel(odmse))
+
+## centroided status could be set manually
 centroided(odmse, msLevel = 1) <- FALSE
 centroided(odmse, msLevel = 2) <- TRUE
 centroided(odmse, msLevel = 3) <- TRUE
-table(centroided(odmse), msLevel(odmse))
 
+## or when reading the data
 odmse2 <- readMSData(f, centroided = c(FALSE, TRUE, TRUE),
 		     mode = "onDisk")
 table(centroided(odmse), msLevel(odmse))
@@ -641,7 +649,7 @@ table(msLevel(from1))
 
 ## Extract the second sepctrum's parent (MS1) and children (MS3)
 ## spectra
-(from2 <- filterPrecursorScan(odmse, 21945))
+(from2 <- filterPrecursorScan(odmse, 21946))
 table(msLevel(from2))
 
 }

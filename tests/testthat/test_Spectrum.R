@@ -173,27 +173,41 @@ test_that("Spectrum strict quantification", {
         (mz.[5] - mz.[4]) * (int[4] - int[5]) / 2)
 })
 
-test_that("breaks_Spectrum", {
-    s1 <- new("Spectrum2", mz = 1:4, intensity = 1:4)
-    ## issue 191
-    expect_equal(MSnbase:::breaks_Spectrum(s1), 1:5)
-    expect_equal(MSnbase:::breaks_Spectrum(s1, breaks = 1:2), c(1, 2, 5))
-    expect_equal(MSnbase:::breaks_Spectrum(s1, binSize = 2), c(1, 3, 6))
-})
+## test_that("breaks_Spectrum", {
+##     s1 <- new("Spectrum2", mz = 1:4, intensity = 1:4)
+##     ## issue 191
+##     expect_equal(MSnbase:::breaks_Spectrum(s1), 1:5)
+##     expect_equal(MSnbase:::breaks_Spectrum(s1, breaks = 1:2), c(1, 2, 5))
+##     expect_equal(MSnbase:::breaks_Spectrum(s1, binSize = 2), c(1, 3, 6))
+## })
 
-test_that("breaks_Spectra", {
+test_that(".fix_breaks works as breaks_Spectra", {
     s1 <- new("Spectrum2", mz = 1:4, intensity = 1:4)
     s2 <- new("Spectrum2", mz = 1:5, intensity = 1:5)
-    expect_equal(MSnbase:::breaks_Spectra(s1, s1), 1:5)
-    expect_equal(MSnbase:::breaks_Spectra(s2, s2), 1:6)
+    brks <- seq(floor(min(c(mz(s1), mz(s1)))),
+                ceiling(max(c(mz(s1), mz(s1)))), by = 1)
+    expect_equal(brks, 1:4)
+    expect_equal(MSnbase:::.fix_breaks(brks, c(1, 4)), 1:5)
+    brks <- seq(floor(min(c(mz(s1), mz(s2)))),
+                ceiling(max(c(mz(s1), mz(s2)))), by = 1)
+    expect_equal(brks, 1:5)
     ## issue 190
-    expect_equal(MSnbase:::breaks_Spectra(s1, s2), 1:6)
-    expect_equal(MSnbase:::breaks_Spectra(s1, s2, binSize = 2), c(1, 3, 5, 7))
+    expect_equal(MSnbase:::.fix_breaks(brks, c(1, 5)), 1:6)
+    brks <- seq(floor(min(c(mz(s1), mz(s2)))),
+                ceiling(max(c(mz(s1), mz(s2)))), by = 2)
+    expect_equal(brks, c(1, 3, 5))
+    expect_equal(MSnbase:::.fix_breaks(brks, c(1, 6)), c(1, 3, 5, 7))
 
     s3 <- new("Spectrum2", mz = 1:4, intensity = 1:4)
     s4 <- new("Spectrum2", mz = 11:15, intensity = 1:5)
-    expect_equal(MSnbase:::breaks_Spectra(s3, s4), 1:16)
-    expect_equal(MSnbase:::breaks_Spectra(s3, s4, binSize = 2), seq(1, 17, by=2))
+    brks <- seq(floor(min(c(mz(s3), mz(s4)))),
+                ceiling(max(c(mz(s3), mz(s4)))), by = 1)
+    expect_equal(brks, 1:15)
+    expect_equal(MSnbase:::.fix_breaks(brks, c(1, 15)), 1:16)
+    brks <- seq(floor(min(c(mz(s3), mz(s4)))),
+                ceiling(max(c(mz(s3), mz(s4)))), by = 2)
+    expect_equal(brks, seq(1, 15, 2))
+    expect_equal(MSnbase:::.fix_breaks(brks, c(1, 15)), seq(1, 17, by=2))
 })
 
 test_that("bin_Spectrum", {
@@ -202,7 +216,7 @@ test_that("bin_Spectrum", {
     r1 <- new("Spectrum2", mz = 1:5 + 0.5, intensity = 1:5, tic = 15)
     r2 <- new("Spectrum2", mz = c(2, 4, 6), intensity = c(3, 7, 5), tic = 15)
     r3 <- new("Spectrum2", mz = c(2, 4, 6), intensity = c(1.5, 3.5, 5), tic = 10)
-    r31 <- new("Spectrum2", mz = c(2, 4, 6.5), intensity = c(1.5, 3.5, 5), tic = 10)
+    r31 <- new("Spectrum2", mz = c(2, 4, 6), intensity = c(1.5, 3.5, 5), tic = 10)
     r4 <- new("Spectrum2", mz = c(1, 3, 5), intensity = c(1, 5, 9), tic = 15)
     expect_equal(MSnbase:::bin_Spectrum(s1, binSize = 1), r1)
     expect_equal(MSnbase:::bin_Spectrum(s1, binSize = 2), r2)
@@ -538,11 +552,11 @@ test_that("combineSpectra works", {
                intensity = ints2, rt = 4)
     expect_error(combineSpectra(list(sp1, sp2, sp3, sp4)))
 
-    res <- combineSpectra(list(sp1, sp2, sp3))
+    res <- combineSpectra(list(sp1, sp2, sp3), timeDomain = TRUE)
     expect_equal(length(mz(res)), length(mz(sp2)))
     expect_equal(rtime(res), rtime(sp2))
 
-    res <- combineSpectra(list(sp2, sp1))
+    res <- combineSpectra(list(sp2, sp1), timeDomain = FALSE)
     expect_equal(length(mz(res)), length(mz(sp1)))
     expect_equal(rtime(res), rtime(sp1))
 
@@ -551,15 +565,15 @@ test_that("combineSpectra works", {
     ## randon noise larger than resolution.
     expect_error(res <- combineSpectra(list(sp1, sp3, sp4)))
 
-    res <- combineSpectra(list(sp1, sp2, sp3), main = 1)
+    res <- combineSpectra(list(sp1, sp2, sp3), main = 1, timeDomain = TRUE)
     expect_equal(rtime(res), rtime(sp1))
     expect_equal(length(mz(res)), length(mz(sp1)))
 
-    res <- combineSpectra(list(sp1, sp2, sp3), main = 3)
+    res <- combineSpectra(list(sp1, sp2, sp3), main = 3, timeDomain = TRUE)
     expect_equal(rtime(res), rtime(sp3))
     expect_equal(length(mz(res)), length(mz(sp3)))
     
-    res <- combineSpectra(list(sp1, sp1), intensityFun = sum)
+    res <- combineSpectra(list(sp1, sp1), intensityFun = sum, timeDomain = TRUE)
     expect_equal(mz(res), mz(sp1))
     expect_equal(intensity(res), intensity(sp1) * 2)
 
@@ -568,7 +582,24 @@ test_that("combineSpectra works", {
     res <- combineSpectra(list(sp1, sp2, sp3), mzFun = base::mean)
     res2 <- combineSpectra(list(sp1, sp2, sp3), mzFun = "weighted.mean")
     expect_equal(intensity(res), intensity(res2))
-    expect_true(sum(mz(res) == mz(res2)) == 1)
+    expect_false(all(mz(res) == mz(res2)))
+
+    ## Use real data.
+    od1 <- filterFile(sciex, 1)
+    lst <- spectra(od1[3:5])
+
+    res <- combineSpectra(lst, timeDomain = TRUE)
+    res_2 <- combineSpectra(lst, timeDomain = FALSE)
+
+    expect_equal(mz(res), mz(res_2))
+    expect_equal(intensity(res), intensity(res_2))
+    ## with (wrongly) pre-calculated mzd
+    mzd <- MSnbase:::.estimate_mz_scattering(sort(unlist(lapply(lst, mz))))
+    expect_error(combineSpectra(lst, timeDomain = TRUE, mzd = mzd))
+    res_3 <- combineSpectra(lst, timeDomain = FALSE, mzd = mzd)
+    
+    expect_equal(mz(res), mz(res_3))
+    expect_equal(intensity(res), intensity(res_3))
 })
 
 test_that(".estimate_mz_resolution, estimateMzResolution,Spectrum works", {
@@ -600,3 +631,4 @@ test_that(".density works", {
     expect_equal(res$x, res_2$x)
     expect_equal(res$y, res_2$y)
 })
+

@@ -1,8 +1,71 @@
+# MSnbase 2.7
+
+## Changes in version 2.7.1
+- Handle files without any spectra - see
+  [#342](https://github.com/lgatto/MSnbase/issues/342)
+  <2018-05-15 Tue>
+- New `mergeFeatureVars` and `expandFeatureVars` functions
+  <2018-05-30 Wed>
+
+## Changes in version 2.7.0
+- New devel version for Bioc 3.8
+
+# MSnbase 2.6
+
+## Changes in version 2.6.0
+- New release version for Bioc 3.7
+
 # MSnbase 2.5
 
+## Changes in version 2.5.15
+
+- Nothing yet.
+
+## Changes in version 2.5.14
+
+- Fix changed remote location of mzTab example files <2018-04-19 Thu>
+- Fix failing centroided unit test (see issue
+  [#338](https://github.com/lgatto/MSnbase/issues/338)) <2018-04-20 Fri>
+
+## Changes in version 2.5.13
+
+- Reduce unit testing time (see
+  [#334](https://github.com/lgatto/MSnbase/issues/334))
+  <2018-04-13 Fri>
+- Fix bug in write.exprs when only one feature data is passed
+  <2018-04-17 Tue>
+
+## Changes in version 2.5.12
+
+- Ensure tic and bpi with initial = TRUE calculate the tic and bpi from the
+  data (related to issue [#332](https://github.com/lgatto/MSnbase/issues/332)).
+  <2018-04-10 Tue>
+
+
+## Changes in version 2.5.11
+
+- Improve combineFeatures manual to document the effect for missing
+  values for different types of aggregation methods <2018-04-07 Sat>
+- Update robust summary to hangle missing values (see
+  [#330](https://github.com/lgatto/MSnbase/issues/330)). <2018-04-09 Mon>
+
+
 ## Changes in version 2.5.10
-- Adapt `utils.removePeaks` to new `IRanges` implementation; thanks to H. Pagès
-  for the implementation (see PR [#320](https://github.com/lgatto/MSnbase/issues/320) for discussion) <2018-03-26>.
+
+- New robust summarisation method in `combineFeatures` contributed by
+  Ludger Goeminne, Adriaan Sticker and Lieven Clement <2018-04-03 Tue>
+- Adapt `utils.removePeaks` to new `IRanges` implementation; thanks to
+  H. Pagès for the implementation (see PR
+  [#320](https://github.com/lgatto/MSnbase/issues/320) for discussion)
+  <2018-03-26>.
+- Centroiding information is retrieved from raw files (for mzML/mzXML files;.
+  see issue [#325](https://github.com/lgatto/MSnbase/issues/325) <2018-03-27>
+- Add parameter `timeDomain` to `combineSpectra`, `combineSpectraMovingWindow`
+  and `estimateMzScattering` allowing to perform the grouping of m/z values
+  from consecutive scans based on the square root of the m/z values <2018-03-29>.
+- Assure feature CV feature variable names are unique when combining
+  feature repeatedly (see issue
+  [#303](https://github.com/lgatto/MSnbase/issues/303)) <2018-04-04 Wed>
 
 ## Changes in version 2.5.9
 - New combineSpectra, combineSpectraMovingWindow, estimateMzScattering and
@@ -11,7 +74,8 @@
 
 ## Changes in version 2.5.8
 - New as(MSnExp, data.frame) method <2018-02-16>
-- Speed up readMgfData function - see issue [#319](https://github.com/lgatto/MSnbase/issues/319) <2018-03-13 Tue>
+- Speed up readMgfData function - see issue
+  [#319](https://github.com/lgatto/MSnbase/issues/319) <2018-03-13 Tue>
 
 ## Changes in version 2.5.7
 
@@ -105,7 +169,7 @@
 - Add msLevel slot to Chromatogram object <2017-08-16 Wed>
 - Add msLevel argument to chromatogram,MSnExp method <2017-08-16 Wed>
 - `calculateFragments` now just calculate fragments for all `n - 1L` bonds
-    (before it incorrectly adds an additional bond; fixes [#248](https://github.com/lgatto/MSnbase/issues/248)) <2017-08-20 Sun>
+	(before it incorrectly adds an additional bond; fixes [#248](https://github.com/lgatto/MSnbase/issues/248)) <2017-08-20 Sun>
 - Add `isEmpty` methods for `Chromatogram` and `Chromatograms` objects
   <2017-09-05 Tue>
 - plot,Chromatogram[s] creates an empty plot and returns a warning if the
@@ -148,7 +212,7 @@
 
 ## Changes in version 2.3.3
 - Rewrite `getColsFromPattern` and `getRowsFromPattern` and add unit tests
-    <2017-05-11 Thu>.
+	<2017-05-11 Thu>.
 - Add `.filterNA` and rewrite `filterNA` for `matrix` and `MSnSet`
   <2017-05-11 Thu>.
 - Convert main MSnbase-demo vignette to Rmd/html <2017-05-27 Sat>
@@ -410,7 +474,7 @@
  - More MzTab and Spectrum1 unit testing <2016-05-08 Sun>
  - Speed up readMSData (PR [#86](https://github.com/lgatto/MSnbase/issues/86) by jotsetung) <2016-05-12 Thu>
  - Replace example file URL to use github instead of googlecode
-    <2016-05-12 Thu>
+	<2016-05-12 Thu>
 
 ## Changes in version 1.21.3
 
@@ -535,7 +599,7 @@
 
  - new sampleNames<- for pSet and MSnExp objects <2015-12-15 Tue>
  - Fix bug preventing to write MS1 to mgf (fixes issue [#73](https://github.com/lgatto/MSnbase/issues/73) reported by
-    meowcat) <2015-12-18 Fri>
+	meowcat) <2015-12-18 Fri>
 
 ## Changes in version 1.19.6
 
@@ -704,7 +768,7 @@
 
 ## Changes in version 1.15.14
   - new msnset data, used in various examples instead of quantifying
-    the itraqdata experiment over and over again [2015-04-01 Wed]
+	the itraqdata experiment over and over again [2015-04-01 Wed]
 
 ## Changes in version 1.15.13
  - improve nbavg imputation description and add example [2015-03-22 Sun]
